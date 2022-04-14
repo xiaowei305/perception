@@ -157,8 +157,6 @@ class MultiBoxLoss(nn.Module):
         targets = conf_target_one_hot[mask]  # [#pos+#neg,]
         conf_loss = self.bce_loss(preds, targets)
 
-        # conf_loss /= num_matched_boxes
-
         return {'loc': loc_loss.view(-1), 'conf': conf_loss.view(-1)}, info
 
 
@@ -286,12 +284,7 @@ class SSD(nn.Module):
                  num_classes=8,
                  input_size=(185, 612),
                  anchor_sizes=(0.2, 0.35, 0.5, 0.65, 0.8, 0.95, 1.0),
-                 aspect_ratios=(1.0, 2.0, 0.5, 3.0, 0.3333),
-                 max_output_per_class=100,
-                 max_output=100,
-                 nms_iou_threshold=0.4,
-                 nms_score_threshold=0.2,
-                 nms_together=True,
+                 aspect_ratios=(1.0, 2.0, 0.5, 3.0, 0.3333)
                  ):
         super().__init__()
         backbone = MobileNetV2()
@@ -327,29 +320,25 @@ class SSD(nn.Module):
         outputs = {}
         if self.training:  # training
             with torch.no_grad():
-                threshold = 0.5
-
                 loc_targets, conf_targets = self.decoder.encode(
                         targets['boxes'], targets['classes'],
-                        targets['num_boxes'], threshold)
+                        targets['num_boxes'], threshold=0.5)
 
             box_loss, box_info = self.multibox_loss(loc_preds, loc_targets,
-                                                    conf_preds, conf_targets,
-                                                    )
+                                                    conf_preds, conf_targets)
             outputs.update(box_info)
             outputs.update(box_loss)
-
             return outputs
 
-        with torch.no_grad():
-            boxes, scores, classes, selected, nums = self.decoder(
-                loc_preds, conf_preds)
+        # inference
+        boxes, scores, classes, selected, nums = self.decoder(
+            loc_preds, conf_preds)
 
-        outputs.update({
+        outputs = {
             "detection_boxes": boxes,
             "detection_scores": scores,
             "detection_classes": classes,
             "num_detections": nums
-        })
+        }
 
         return outputs

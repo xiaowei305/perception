@@ -64,17 +64,13 @@ class DataEncoder(torch.nn.Module):
         """Compute default box sizes with scale and aspect transform."""
         super().__init__()
         self.variances = [0.1, 0.2]
-
-        anchors = generate_anchors(
-            fm_sizes,
-            input_size,
-            anchor_sizes=anchor_sizes,
-            aspect_ratios=aspect_ratios,
-        )
+        anchors = generate_anchors(fm_sizes, input_size,
+                                   anchor_sizes=anchor_sizes,
+                                   aspect_ratios=aspect_ratios)
         boxes = [x for anchor in anchors for x in anchor]
         anchors = torch.tensor(boxes)
-
         self.register_buffer("default_boxes", anchors, persistent=False)
+
     @staticmethod
     def cross_iou(box1, box2):
         """Compute the intersection over union of two set of boxes, each box is
@@ -255,5 +251,3 @@ class DataEncoder(torch.nn.Module):
         boxes = torch.clamp(boxes, 0.0, 1.0)
         boxes, scores, classes, keep, num = self.nms(boxes, conf)
         return boxes, scores, classes, keep, num
-
-
