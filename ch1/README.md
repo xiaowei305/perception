@@ -12,5 +12,8 @@ mnist数据集放在了百度云盘: https://pan.baidu.com/s/1GuVfGoMKRxI9Tomdm5
 测试一下使用opencv读取图片并显示，您可以阅读opencv的官方文档来练习其他功能
 * neural_network
 使用神经网络来做手写数字识别，用来练习神经网络的反向传播以及numpy的用法
+* lenet5
+如果你想彻底搞懂CNN的训练流程，这个代码包含了一个完整的LeNet5的实现，参数初始化到
+反向传播、参数更新、权重衰减等。
 * pytorch
 使用pytorch框架来完成手写数字识别，用来练习使用pytorch来训练卷积神经网络
