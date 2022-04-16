@@ -143,7 +143,7 @@ class Tracker():
                 best_h = int(h * scale)
                 best_z = z
         self.roi = (cx + dx, cy + dy, best_w, best_h)
-        #update template
+        # update template
         self.x = self.x * (1 - self.update_rate) + best_z * self.update_rate
         y = self.gaussian_peak(best_z.shape[2], best_z.shape[1])
         new_alphaf = self.train(best_z, y, self.sigma, self.lambdar)

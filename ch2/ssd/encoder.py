@@ -4,6 +4,51 @@ import numpy as np
 import torch
 
 
+def nms(boxes, scores, threshold=0.3):
+    """Non-maximum suppression algorithm.
+
+    Args:
+        boxes: (numpy.ndarray) bounding boxes, sized [N,4].
+        scores: (numpy.ndarray) bounding box scores, sized [N,].
+
+    Return:
+        boxes: (numpy.ndarray) filtered bounding boxes, sized [N,4].
+        scores: (numpy.ndarray) filtered bounding box scores, sized [N,]
+    """
+    box_and_scores = sorted(map(list, zip(boxes, scores)),
+                            key=lambda x: x[1], reverse=True)
+    for i, (box, score) in enumerate(box_and_scores):
+        for j in range(i+1, len(box_and_scores)):
+            if 0 < box_and_scores[j][1] < score and iou(box, box_and_scores[j][0]) > threshold:
+                box_and_scores[j][1] = 0
+    boxes = torch.stack([x[0] for x in box_and_scores if x[1] > 0])
+    scores = torch.stack([x[1] for x in box_and_scores if x[1] > 0])
+    return boxes, scores
+
+
+def iou(box1, box2):
+    """Compute the intersection over union of two set of boxes, each box is
+        [x1,y1,x2,y2].
+
+    Args:
+        box1: (tensor) bounding boxes, sized [N,4].
+        box2: (tensor) bounding boxes, sized [N,4].
+
+    Return:
+        (tensor) iou, sized [N,].
+    """
+    lt = torch.max(box1[..., :2], box2[..., :2])
+    rb = torch.min(box1[..., 2:], box2[..., 2:])
+
+    wh = rb - lt  # [N,2]
+    wh = torch.clamp(wh, 0)  # clip at 0
+    inter = wh[..., 0] * wh[..., 1]  # [N,M]
+
+    area1 = (box1[..., 2] - box1[..., 0]) * (box1[..., 3] - box1[..., 1])
+    area2 = (box2[..., 2] - box2[..., 0]) * (box2[..., 3] - box2[..., 1])
+    return inter / (area1 + area2 - inter)
+
+
 def generate_anchors(fm_sizes,
                      input_size=None,
                      anchor_sizes=None,
@@ -110,51 +155,6 @@ class DataEncoder(torch.nn.Module):
             inter)  # [B,M,] -> [B,1,M] -> [B,N,M]
 
         return inter / (area1 + area2 - inter)  # [B, N, M]
-
-    @staticmethod
-    def nms(boxes, scores):
-        """Non-maximum suppression algorithm.
-
-        Args:
-            boxes: (numpy.ndarray) bounding boxes, sized [N,4].
-            scores: (numpy.ndarray) bounding box scores, sized [N,].
-
-        Return:
-            boxes: (numpy.ndarray) filtered bounding boxes, sized [N,4].
-            scores: (numpy.ndarray) filtered bounding box scores, sized [N,]
-        """
-        box_and_scores = sorted(zip(boxes, scores),
-                                key=lambda x: x[1], reverse=True)
-        for i, (box, score) in enumerate(box_and_scores):
-            for j in range(i+1, len(box_and_scores)):
-                if 0 < box_and_scores[j][1] < score and iou(box, box_and_scores[j][0]):
-                    box_and_scores[j][1] = 0
-        boxes = [x[0] for x in box_and_scores if x[1] > 0]
-        scores = [x[1] for x in box_and_scores if x[1] > 0]
-        return boxes, scores
-
-    @staticmethod
-    def iou(box1, box2):
-        """Compute the intersection over union of two set of boxes, each box is
-            [x1,y1,x2,y2].
-
-        Args:
-            box1: (tensor) bounding boxes, sized [N,4].
-            box2: (tensor) bounding boxes, sized [N,4].
-
-        Return:
-            (tensor) iou, sized [N,].
-        """
-        lt = torch.max(box1[..., :2], box2[..., :2])
-        rb = torch.min(box1[..., 2:], box2[..., 2:])
-
-        wh = rb - lt  # [N,2]
-        wh = torch.clamp(wh, 0)  # clip at 0
-        inter = wh[..., 0] * wh[..., 1]  # [N,M]
-
-        area1 = (box1[..., 2] - box1[..., 0]) * (box1[..., 3] - box1[..., 1])
-        area2 = (box2[..., 2] - box2[..., 0]) * (box2[..., 3] - box2[..., 1])
-        return inter / (area1 + area2 - inter)
 
     def encode(self, boxes, classes, nums, threshold=0.5):
         """ Transforms target bounding boxes and class labels to SSD boxes and
