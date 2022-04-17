@@ -16,12 +16,13 @@ def nms(boxes, scores, threshold=0.3):
         scores: (numpy.ndarray) filtered bounding box scores, sized [N,]
     """
     box_and_scores = sorted(map(list, zip(boxes, scores)),
-                            key=lambda x: x[1], reverse=True)
+                            key=lambda x: x[1], reverse=True)  # 对box和分数排序
     for i, (box, score) in enumerate(box_and_scores):
         for j in range(i+1, len(box_and_scores)):
-            if 0 < box_and_scores[j][1] < score and iou(box, box_and_scores[j][0]) > threshold:
-                box_and_scores[j][1] = 0
-    boxes = torch.stack([x[0] for x in box_and_scores if x[1] > 0])
+            if (0 < box_and_scores[j][1] < score  # 分数不为0，且小于当前box的分数
+                    and iou(box, box_and_scores[j][0]) > threshold):  # iou大于阈值
+                box_and_scores[j][1] = 0  # 过滤掉的框，分数置为0
+    boxes = torch.stack([x[0] for x in box_and_scores if x[1] > 0])  # 取分数不为0的box
     scores = torch.stack([x[1] for x in box_and_scores if x[1] > 0])
     return boxes, scores
 
