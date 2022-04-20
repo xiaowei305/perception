@@ -5,8 +5,8 @@ import numpy as np
 
 
 def rotation_from_euler(roll=0., pitch=0., yaw=0.):
-    sr, sp, sy = np.sin(roll), np.sin(-pitch), np.sin(yaw)
-    cr, cp, cy = np.cos(roll), np.cos(-pitch), np.cos(yaw)
+    sr, sp, sy = np.sin(roll), np.sin(pitch), np.sin(yaw)
+    cr, cp, cy = np.cos(roll), np.cos(pitch), np.cos(yaw)
     R1 = np.array([
         [cy, -sy, 0],
         [sy, cy, 0],
@@ -53,14 +53,14 @@ def load_camera_params(file):
     T_veh2cam = translation_matrix((-x, -y, -z))
 
     # Rotate to camera coordinates
-    R = np.array([[0., 1., 0., 0.],
+    R = np.array([[0., -1., 0., 0.],
                   [0., 0., -1., 0.],
                   [1., 0., 0., 0.],
                   [0., 0., 0., 1.]])
     RT = R @ R_veh2cam @ T_veh2cam
     R = RT[:3, :3]
     T = RT[:3, 3:]
-    return K, R, T
+    return K, R, T, z
 
 
 def get_homography(K, R, T):
@@ -70,25 +70,25 @@ def get_homography(K, R, T):
     return H
 
 
-def ipm(coord, K, R, T):
+def ipm(coord, K, R, T, h):
     H = get_homography(K, R, T)
     xyz = H @ coord
-    xyz = xyz / xyz[2, 0]
+    xyz = xyz / xyz[2, 0] * h  # 归一化之后再乘以高度，使z坐标与高度一致
     return xyz[:, 0]
 
 
-def draw_ipm(image, K, R, T):
-    # Compute projection matrix
+def draw_ipm(image, K, R, T, target_w, target_h):
     H = get_homography(K, R, T)
 
     K_top = np.array([
-            [10, 0, 0],
-            [0, 10, 250],
+            [10, 0, 0],    # 每个像素代表10米
+            [0, -10, 250], # y需要翻转一下，图像的y轴从上到下，而车坐标y轴从下到上
             [0, 0, 1]])
 
     H = K_top @ H
-    # Warp the image
-    warped = cv2.warpPerspective(image, H, (TARGET_W, TARGET_H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+    warped = cv2.warpPerspective(image, H, (target_w, target_h),
+                                 flags=cv2.INTER_LINEAR,
+                                 borderMode=cv2.BORDER_CONSTANT,
                                  borderValue=0)
     return warped
 
@@ -97,10 +97,10 @@ if __name__ == '__main__':
     # Retrieve camera parameters
     image = cv2.cvtColor(cv2.imread('stuttgart_01_000000_003715_leftImg8bit.png'), cv2.COLOR_BGR2RGB)
     TARGET_H, TARGET_W = 500, 500
-    K, R, T = load_camera_params('camera.json')
+    K, R, T, camera_h = load_camera_params('camera.json')
 
     # Warp the image
-    warped = draw_ipm(image, K, R, T)
+    warped = draw_ipm(image, K, R, T, TARGET_W, TARGET_H)
 
     # roi = cv2.selectROI("please select a car.", image, False, False)
     roi = (823, 410, 121, 86)
@@ -108,12 +108,13 @@ if __name__ == '__main__':
     xc = int(x + w * 0.5)
     yc = y + h
     bottom_center = np.array([[xc], [yc], [1.0]])
-    depth, dy, _ = ipm(bottom_center, K, R, T)
+    depth, dy, _ = ipm(bottom_center, K, R, T, camera_h)
     print(depth, dy)
 
     cv2.circle(image, (xc, yc), 3, (255, 0, 0), 3)
     cv2.rectangle(image, (x, y), (x+w, y+h), (0, 0, 255), 2)
-    cv2.putText(image, f"depth={depth:.3f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+    cv2.putText(image, f"depth={depth:.3f}", (x, y),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
 
     # Draw results
     fig, ax = plt.subplots(1, 2)
