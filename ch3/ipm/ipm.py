@@ -3,9 +3,6 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-image = cv2.cvtColor(cv2.imread('stuttgart_01_000000_003715_leftImg8bit.png'), cv2.COLOR_BGR2RGB)
-TARGET_H, TARGET_W = 500, 500
-
 
 def rotation_from_euler(roll=0., pitch=0., yaw=0.):
     sr, sp, sy = np.sin(roll), np.sin(-pitch), np.sin(yaw)
@@ -37,11 +34,6 @@ def translation_matrix(vector):
 
 
 def load_camera_params(file):
-    """
-    Get the intrinsic and extrinsic parameters
-    Returns:
-        Camera extrinsic and intrinsic matrices
-    """
     with open(file, 'rt') as handle:
         p = json.load(handle)
 
@@ -81,7 +73,7 @@ def get_homography(K, R, T):
 def ipm(coord, K, R, T):
     H = get_homography(K, R, T)
     xyz = H @ coord
-    xyz = xyz / xyz[2, 0] * T[2, 0]
+    xyz = xyz / xyz[2, 0]
     return xyz[:, 0]
 
 
@@ -103,6 +95,8 @@ def draw_ipm(image, K, R, T):
 
 if __name__ == '__main__':
     # Retrieve camera parameters
+    image = cv2.cvtColor(cv2.imread('stuttgart_01_000000_003715_leftImg8bit.png'), cv2.COLOR_BGR2RGB)
+    TARGET_H, TARGET_W = 500, 500
     K, R, T = load_camera_params('camera.json')
 
     # Warp the image
