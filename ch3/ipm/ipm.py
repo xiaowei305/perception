@@ -120,5 +120,7 @@ if __name__ == '__main__':
     cv2.imshow("Front View", image)
     cv2.waitKey(0)
     plt.imshow(warped)
+    plt.xticks(np.arange(0, 500, 50), [str(x) + "m" for x in np.arange(0, 50, 5)])
+    plt.yticks(np.arange(0, 500, 50), [str(x) + "m" for x in -np.arange(-25, 25, 5)])
     plt.tight_layout()
     plt.show()
