@@ -17,13 +17,14 @@ def read_calib_file(filepath):
 
 
 def project_lidar_to_cam2(calib):
-    P_lidar2cam_ref = np.vstack((calib['Tr_velo_to_cam'].reshape(3, 4),
-                                 np.array([0., 0., 0., 1.])))  # 雷达到相机的变换矩阵
-    R_ref2rect = np.eye(4)
-    R0_rect = calib['R0_rect'].reshape(3, 3)  # 转换到0号相机的旋转矩阵
-    R_ref2rect[:3, :3] = R0_rect
-    P_rect2cam2 = calib['P2'].reshape((3, 4)) # P2代表第二个相机（左前）外参
-    proj_mat = P_rect2cam2 @ R_ref2rect @ P_lidar2cam_ref
+    # 雷达到相机的变换矩阵
+    P_lidar2cam = np.vstack((calib['Tr_velo_to_cam'].reshape(3, 4),
+                             np.array([0., 0., 0., 1.])))
+    R0_camera = np.eye(4)    # 转换到0号相机的旋转矩阵，KITTI数据集特有
+    R0_camera[:3, :3] = calib['R0_rect'].reshape(3, 3)
+    P_lidar2cam = R0_camera @ P_lidar2cam
+    K_cam2 = calib['P2'].reshape((3, 4)) # P2代表2号相机（左前）外参
+    proj_mat = K_cam2 @ P_lidar2cam
     return proj_mat
 
 
@@ -47,11 +48,10 @@ def render_lidar_on_image(pcd, img, calib, img_width, img_height):
 
     pts_2d = project_to_image(pcd.transpose(), proj_lidar2cam2)  # 投影点云到图片
 
-    # 过滤不在图像可见范围内的点
+    # 过滤不在图像可见范围内的点(超出图像范围或者深度为负）
     inds = np.where((pts_2d[0, :] < img_width) & (pts_2d[0, :] >= 0) &
                     (pts_2d[1, :] < img_height) & (pts_2d[1, :] >= 0) &
-                    (pcd[:, 0] > 0)
-                    )[0]
+                    (pcd[:, 0] > 0))[0]
 
     imgfov_pc_pixel = pts_2d[:, inds]
 
@@ -65,7 +65,7 @@ def render_lidar_on_image(pcd, img, calib, img_width, img_height):
 
     for i in range(imgfov_pc_pixel.shape[1]):
         depth = imgfov_pc_cam2[2, i]   # 点云的第三个坐标z就是深度
-        color = cmap[int(640.0 / depth), :]
+        color = cmap[int(640.0 / depth), :]  # 将深度转换为颜色
         cv2.circle(img, (int(np.round(imgfov_pc_pixel[0, i])),
                          int(np.round(imgfov_pc_pixel[1, i]))),
                    2, color=tuple(color), thickness=-1)
