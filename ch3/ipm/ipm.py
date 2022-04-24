@@ -83,8 +83,8 @@ def draw_ipm(image, K, R, T, target_w, target_h):
     H = get_homography(K, R, T)
 
     K_top = np.array([
-            [10, 0, 0],    # 每个像素代表10米
-            [0, -10, 250], # y需要翻转一下，图像的y轴从上到下，而车坐标y轴从下到上
+            [10, 0, 0],     # 每10个像素代表1米
+            [0, -10, 250],  # y需要翻转一下，图像的y轴从上到下，而车坐标y轴从下到上
             [0, 0, 1]])
 
     H = K_top @ H
@@ -97,7 +97,7 @@ def draw_ipm(image, K, R, T, target_w, target_h):
 
 if __name__ == '__main__':
     # Retrieve camera parameters
-    image = cv2.cvtColor(cv2.imread('stuttgart_01_000000_003715_leftImg8bit.png'), cv2.COLOR_BGR2RGB)
+    image = cv2.imread('stuttgart_01_000000_003715_leftImg8bit.png')
     TARGET_H, TARGET_W = 500, 500
     K, R, T = load_camera_params('camera.json')
 
@@ -105,21 +105,23 @@ if __name__ == '__main__':
     warped = draw_ipm(image, K, R, T, TARGET_W, TARGET_H)
 
     # roi = cv2.selectROI("please select a car.", image, False, False)
-    roi = (823, 410, 121, 86)
-    x, y, w, h = roi
-    xc = int(x + w * 0.5)
-    yc = y + h
-    bottom_center = np.array([[xc], [yc], [1.0]])
-    depth, dy, _ = ipm(bottom_center, K, R, T)
-    print(depth, dy)
+    for roi in [(823, 410, 121, 86), (1029, 394, 99, 94)]:
+        x, y, w, h = roi
+        xc = int(x + w * 0.5)
+        yc = y + h
+        bottom_center = np.array([[xc], [yc], [1.0]])
+        depth, dy, _ = ipm(bottom_center, K, R, T)
+        print(depth, dy)
 
-    cv2.circle(image, (xc, yc), 3, (255, 0, 0), 3)
-    cv2.rectangle(image, (x, y), (x+w, y+h), (0, 0, 255), 2)
-    cv2.putText(image, f"depth={depth:.3f}", (x, y),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
-    cv2.imshow("Front View", image)
+        cv2.circle(image, (xc, yc), 3, (255, 0, 0), 3)
+        cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 255), 2)
+        cv2.putText(image, f"x={depth:.1f}m", (x, y + h + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+        cv2.putText(image, f"y={dy:.1f}m", (x, y + h + 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+    cv2.imshow("Front View", cv2.resize(image, (image.shape[1]//2, image.shape[0]//2)))
     cv2.waitKey(0)
-    plt.imshow(warped)
+    plt.imshow(cv2.cvtColor(warped, cv2.COLOR_BGR2RGB))
     plt.xticks(np.arange(0, 500, 50), [str(x) + "m" for x in np.arange(0, 50, 5)])
     plt.yticks(np.arange(0, 500, 50), [str(x) + "m" for x in -np.arange(-25, 25, 5)])
     plt.tight_layout()
